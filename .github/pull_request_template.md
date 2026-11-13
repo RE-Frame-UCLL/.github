@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] A changeset is added (`npx changeset`, or `npx changeset --empty` if nothing is released)
+- [ ] I ran `npx changeset` myself and committed the file (or `npx changeset --empty` if nothing is released); CI only checks it, see [Changesets](https://github.com/RE-Frame-UCLL/.github/blob/main/CONTRIBUTING.md#changesets-you-write-them-ci-releases-them)
 - [ ] Tests cover the change
 - [ ] JSDoc is updated for any changed public API
 - [ ] New `.js` files start with the Apache-2.0 licence header
