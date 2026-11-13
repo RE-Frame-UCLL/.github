@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose something new for RE-Frame.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what makes it hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your proposal
+      description: How could RE-Frame help? Which package would it belong in (core, a module, design)?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: For example the scaffold override file, a project-level component, an existing lib.

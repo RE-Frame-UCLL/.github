@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in an RE-Frame package does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems do not belong here: see SECURITY.md.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - re-frame (client)
+        - re-brain (server)
+        - create-re-frame
+        - rf or rb CLI / linter
+        - a module (re-frame-* or re-brain-* add-on)
+        - a design package (theme, UI)
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: From `npm ls`, for example 5.1.0.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Node version and browser
+      description: For example Node 26.1.0, Firefox 145.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest code or steps that show the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include error messages and console output.
+    validations:
+      required: true

@@ -1,0 +1,37 @@
+# Copyright 2026 UCLL
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pull-request check for this .github repo itself. It calls the same reusable
+# check as every other repo (so the required "check / result" reports here too)
+# and lints the workflow files.
+
+name: check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Lint workflows and workflow templates
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+          .github/workflows/*.yml workflow-templates/*.yml

@@ -1,0 +1,96 @@
+# Copyright 2026 UCLL
+# SPDX-License-Identifier: Apache-2.0
+#
+# Reusable release workflow for every RE-Frame repo that publishes packages.
+#
+# Call it from .github/workflows/release.yml in your repo, on a push to main:
+#
+#   on:
+#     push:
+#       branches: [main]
+#   permissions:
+#     contents: write
+#     pull-requests: write
+#     packages: write
+#     actions: write
+#   jobs:
+#     release:
+#       uses: RE-Frame-UCLL/.github/.github/workflows/release.yml@main
+#
+# What it does on every push to main:
+#   1. installs and runs the tests again;
+#   2. with unreleased changesets: opens or updates the "Version packages" pull
+#      request (versions + CHANGELOG.md), then starts the repo's check workflow on
+#      it, because pull requests opened with GITHUB_TOKEN start no workflows;
+#   3. without changesets (the "Version packages" PR was just merged): publishes
+#      every package whose version is not on GitHub Packages yet and tags it.
+#
+# Publishing uses the built-in GITHUB_TOKEN with `packages: write`; no secret is
+# stored. Packages go to https://npm.pkg.github.com under @re-frame-ucll (each
+# package.json has publishConfig.registry set to it).
+
+name: release
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version.
+        type: string
+        default: "26"
+      test-command:
+        description: Tests run before versioning or publishing. An empty string skips them.
+        type: string
+        default: npm test
+      check-workflow:
+        description: >-
+          File name of the repo's check workflow, started on the "Version packages"
+          pull request so the required check "check / result" reports there. An
+          empty string skips it.
+        type: string
+        default: check.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+  actions: write
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: https://npm.pkg.github.com
+          scope: "@re-frame-ucll"
+          # No dependency cache in a job that publishes (cache poisoning).
+          package-manager-cache: false
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: Tests
+        if: inputs.test-command != ''
+        run: ${{ inputs.test-command }}
+      - name: Version packages pull request, or publish
+        id: changesets
+        uses: changesets/action@v2
+        with:
+          publish-script: npx changeset publish
+          pr-title: Version packages
+          commit-message: Version packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: Run the check on the Version packages pull request
+        if: steps.changesets.outputs.pr-number != '' && inputs.check-workflow != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_WORKFLOW: ${{ inputs.check-workflow }}
+          BRANCH: changeset-release/${{ github.ref_name }}
+        run: gh workflow run "$CHECK_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"

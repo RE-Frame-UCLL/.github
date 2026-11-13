@@ -1,0 +1,25 @@
+# Copyright 2026 UCLL
+# SPDX-License-Identifier: Apache-2.0
+#
+# Release with changesets: a "Version packages" pull request, and after it is
+# merged, publish to GitHub Packages (@re-frame-ucll) with GITHUB_TOKEN.
+
+name: release
+
+on:
+  push:
+    branches: [$default-branch]
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: RE-Frame-UCLL/.github/.github/workflows/release.yml@main

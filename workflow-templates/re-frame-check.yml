@@ -1,0 +1,24 @@
+# Copyright 2026 UCLL
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pull-request check (ESLint, rf lint, types from JSDoc, unit tests, changeset,
+# licence header). The ruleset on main requires its status "check / result",
+# so keep the job id `check`.
+
+name: check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    uses: RE-Frame-UCLL/.github/.github/workflows/check.yml@main

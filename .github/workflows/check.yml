@@ -1,0 +1,242 @@
+# Copyright 2026 UCLL
+# SPDX-License-Identifier: Apache-2.0
+#
+# Reusable pull-request check for every RE-Frame repo.
+#
+# Call it from .github/workflows/check.yml in your repo, with the job id `check`:
+#
+#   jobs:
+#     check:
+#       uses: RE-Frame-UCLL/.github/.github/workflows/check.yml@main
+#
+# The organisation ruleset on main requires the status check "check / result",
+# which is the last job below. It is green only when every other job passed or
+# was skipped because it does not apply (no package.json, no .changeset/ ...).
+
+name: check
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version.
+        type: string
+        default: "26"
+      lint-command:
+        description: ESLint with the RE-Frame preset. An empty string skips it.
+        type: string
+        default: npm run lint
+      rf-lint:
+        description: >-
+          Run `npm run rf -- lint` when the repo has an `rf` script. Until the rf CLI
+          exists (phase 4) this step only prints a notice.
+        type: boolean
+        default: true
+      test-command:
+        description: Unit tests. An empty string skips them.
+        type: string
+        default: npm test
+      types-command:
+        description: >-
+          Generates the .d.ts files from the JSDoc and fails on JSDoc errors. An empty
+          string skips it.
+        type: string
+        default: npm run types
+      header-exclude:
+        description: >-
+          Extended regular expression of tracked paths that do not need the licence
+          header (for example vendored files). Empty means every .js/.mjs/.cjs file.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  detect:
+    name: detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      node: ${{ steps.detect.outputs.node }}
+      changesets: ${{ steps.detect.outputs.changesets }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: What does this repo have?
+        id: detect
+        run: |
+          if [ -f package.json ]; then
+            echo "node=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "node=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=No package.json::lint, types and tests are skipped"
+          fi
+          if [ -f .changeset/config.json ]; then
+            echo "changesets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changesets=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=No .changeset/config.json::the changeset check is skipped"
+          fi
+
+  lint:
+    name: lint
+    needs: detect
+    if: needs.detect.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@re-frame-ucll"
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: ESLint
+        if: inputs.lint-command != ''
+        run: ${{ inputs.lint-command }}
+      - name: rf lint
+        if: inputs.rf-lint
+        run: |
+          if npm pkg get scripts.rf | grep -q '"'; then
+            npm run rf -- lint
+          else
+            echo "::notice title=rf lint::not available yet; it comes with the rf CLI in re-frame (phase 4)"
+          fi
+
+  types:
+    name: types
+    needs: detect
+    if: needs.detect.outputs.node == 'true' && inputs.types-command != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@re-frame-ucll"
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: Generate types from JSDoc
+        run: ${{ inputs.types-command }}
+
+  test:
+    name: test
+    needs: detect
+    if: needs.detect.outputs.node == 'true' && inputs.test-command != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@re-frame-ucll"
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: Unit tests
+        run: ${{ inputs.test-command }}
+
+  changeset:
+    name: changeset
+    needs: detect
+    # Only on pull requests, only in repos that use changesets, and never on the
+    # "Version packages" pull request that changesets itself opens.
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.detect.outputs.changesets == 'true' &&
+      !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@re-frame-ucll"
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+      - name: A changed package needs a changeset
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if ! npx changeset status --since="origin/$BASE_REF"; then
+            echo "::error title=Changeset missing::run 'npx changeset' and commit the file (or 'npx changeset --empty' when nothing is released)"
+            exit 1
+          fi
+
+  licence-header:
+    name: licence header
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Every source file starts with the Apache-2.0 header
+        env:
+          HEADER_EXCLUDE: ${{ inputs.header-exclude }}
+        run: |
+          copyright='^// Copyright [0-9]{4}(-[0-9]{4})? UCLL$'
+          spdx='// SPDX-License-Identifier: Apache-2.0'
+          checked=0
+          missing=0
+          while IFS= read -r -d '' file; do
+            if [ -n "$HEADER_EXCLUDE" ] && [[ "$file" =~ $HEADER_EXCLUDE ]]; then
+              continue
+            fi
+            checked=$((checked + 1))
+            mapfile -t -n 3 lines < <(tr -d '\r' < "$file")
+            first=0
+            if [[ "${lines[0]:-}" == '#!'* ]]; then first=1; fi
+            line1="${lines[$first]:-}"
+            line2="${lines[$((first + 1))]:-}"
+            if [[ ! "$line1" =~ $copyright || "$line2" != "$spdx" ]]; then
+              echo "::error file=$file,line=1,title=Licence header::$file must start with '// Copyright <year> UCLL' and '$spdx'"
+              missing=$((missing + 1))
+            fi
+          done < <(git ls-files -z -- '*.js' '*.mjs' '*.cjs')
+          echo "Checked $checked file(s), $missing without the header."
+          [ "$missing" -eq 0 ]
+
+  result:
+    name: result
+    if: always()
+    needs: [detect, lint, types, test, changeset, licence-header]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All checks passed or did not apply
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' > /dev/null; then
+            echo "::error title=check::one or more checks failed"
+            exit 1
+          fi

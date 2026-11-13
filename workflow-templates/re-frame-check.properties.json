@@ -1,0 +1,6 @@
+{
+  "name": "RE-Frame check",
+  "description": "Pull-request check for RE-Frame repos: ESLint, rf lint, types from JSDoc, unit tests, changeset and licence header. Required by the ruleset on main.",
+  "categories": ["JavaScript"],
+  "filePatterns": ["^package\\.json$"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "RE-Frame release",
+  "description": "Changesets release for RE-Frame packages: opens the Version packages pull request, then publishes to GitHub Packages under @re-frame-ucll.",
+  "categories": ["JavaScript"],
+  "filePatterns": ["^\\.changeset/config\\.json$"]
+}
