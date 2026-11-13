@@ -4,11 +4,17 @@ Thank you for helping. These rules hold for every repo in
 [RE-Frame-UCLL](https://github.com/RE-Frame-UCLL) unless the repo has its own
 `CONTRIBUTING.md`.
 
+> [!IMPORTANT]
+> **Every pull request needs a changeset, and you write it yourself** with
+> `npx changeset`. CI does not write it for you; it only checks that it is there and
+> fails your pull request when it is missing. CI does the rest of the release.
+> See [Changesets: you write them, CI releases them](#changesets-you-write-them-ci-releases-them).
+
 ## The short version
 
 1. Branch from `main`, keep the branch short-lived.
 2. Make your change, with tests.
-3. Run `npx changeset` and commit the file it writes.
+3. **Run `npx changeset` yourself** and commit the file it writes in `.changeset/`.
 4. Open a pull request into `main`. CI must be green and one person must approve.
 
 ## Branches: trunk-based
@@ -22,31 +28,74 @@ Thank you for helping. These rules hold for every repo in
   pushes and deleting `main` are blocked. Where a repo has a `CODEOWNERS` file, the
   code owners must approve changes to their paths.
 
-## Changesets: one per pull request
+## Changesets: you write them, CI releases them
 
-Every pull request that changes a package adds a changeset: a short note that says
-which package changes, what kind of change it is, and one line for the changelog.
+A changeset is a small file in `.changeset/` that says which package changes, what
+kind of change it is, and one line for the changelog. A release has three changeset
+steps. **Only the first one is yours**; CI does the other two.
+
+| Step | Who | When |
+| ---- | --- | ---- |
+| `npx changeset` | **You** | Once per pull request, on your branch, before you push |
+| `changeset version` | CI (the `release` workflow) | After your pull request is merged into `main`: raises the versions, writes `CHANGELOG.md` and opens the "Version packages" pull request |
+| `changeset publish` | CI | After a core maintainer merges "Version packages": publishes the packages to GitHub Packages and tags the release |
+
+### Your step: `npx changeset`
+
+CI cannot write your changeset, because only you know what your change means: a fix
+or something new, whether apps must change their code, and what users should read
+in the changelog.
+
+On your branch, after `npm ci`:
 
 ```bash
 npx changeset
 ```
 
-Pick the packages, pick the kind of change and write the line. Commit the new file
-in `.changeset/` together with your change.
+It asks three things:
 
-| Kind  | When                                         |
-| ----- | -------------------------------------------- |
-| patch | A fix                                        |
-| minor | Something new that breaks nothing            |
-| major | An app must change code to keep working      |
+1. Which packages changed.
+2. The kind of change for each package:
 
-- Nothing to release (docs, CI, tests only)? Run `npx changeset --empty`.
-- Majors move in lockstep: every RE-Frame package has the same major as core
-  (re-frame 5 goes with every lib at 5.x). Do not bump a lib's major on its own;
-  talk to the core maintainers first.
-- The `check` workflow fails when a changed package has no changeset.
-- Only core maintainers merge the "Version packages" pull request that CI opens;
-  merging it publishes the packages.
+   | Kind  | When                                    |
+   | ----- | --------------------------------------- |
+   | patch | A fix                                   |
+   | minor | Something new that breaks nothing       |
+   | major | An app must change code to keep working |
+
+3. One line for the changelog, written for the people who use the package.
+
+Commit the new file in `.changeset/` together with your change. Forgot it? Add it to
+the same pull request; the check turns green again.
+
+Handy variants:
+
+- `npx changeset --empty` for a pull request that releases nothing (docs, CI or
+  tests only).
+- `npx changeset add --patch @re-frame-ucll/re-brain` (or `--minor`, `--major`) gives
+  the kind on the command line, so it only asks for the changelog line.
+
+Run it after `npm ci`, so `npx` uses the repo's own Changesets (`@changesets/cli` is a
+dev dependency). If `npx` asks "Need to install the following packages: changeset",
+answer **no**: that is an unrelated package of someone else.
+
+### What CI does with it
+
+- **On your pull request:** the `check` workflow fails (`check / changeset`) when a
+  package changed and there is no changeset.
+- **After the merge:** the `release` workflow collects every changeset on `main` into
+  one "Version packages" pull request. More merges before the release update that
+  same pull request, so one release can hold many changes.
+- **At release time:** a core maintainer reviews and merges "Version packages"; that
+  merge publishes the packages, tags them and creates a GitHub Release.
+- You never run `changeset version` or `changeset publish` yourself. Publishing by
+  hand is only for emergencies, by a core maintainer.
+
+### Majors move in lockstep
+
+Every RE-Frame package has the same major as core (re-frame 5 goes with every lib at
+5.x). Do not make a `major` changeset for a lib on its own; talk to the core
+maintainers first.
 
 ## Run the tools through npm
 

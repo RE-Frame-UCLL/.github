@@ -186,7 +186,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           if ! npx changeset status --since="origin/$BASE_REF"; then
-            echo "::error title=Changeset missing::run 'npx changeset' and commit the file (or 'npx changeset --empty' when nothing is released)"
+            echo "::error title=Changeset missing::you write the changeset yourself: run 'npx changeset' and commit the file (or 'npx changeset --empty' when nothing is released). See https://github.com/RE-Frame-UCLL/.github/blob/main/CONTRIBUTING.md#changesets-you-write-them-ci-releases-them"
             exit 1
           fi
 
